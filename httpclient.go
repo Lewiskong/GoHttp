@@ -11,22 +11,6 @@ import (
 	"strings"
 )
 
-/**
-http.get("/fdfdfasdf",func(req,rsp){
-
-})
-
-	err:=http.get("fdsafdsa")
-	.addHeader("","")
-	.addCookie("","")
-	.getJson(&msg)
-	.execute()
-
-http.get("",func(){
-
-})
-*/
-
 type HttpMethod string
 
 const (
