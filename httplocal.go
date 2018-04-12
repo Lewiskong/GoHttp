@@ -1,7 +1,8 @@
-package httpclient
+package httplocal
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,6 +26,7 @@ type HttpClient struct {
 	tasks   map[*interface{}]string
 	method  HttpMethod
 	request *http.Request
+	routeip string
 }
 
 func Get(rawurl string) *HttpClient {
@@ -36,6 +38,11 @@ func Get(rawurl string) *HttpClient {
 		return client
 	}
 
+	rawurl, err := HandleURL(client, rawurl)
+	if err != nil {
+		client.Error = err
+	}
+
 	return client.handle(rawurl)
 }
 
@@ -45,6 +52,11 @@ func Post(rawurl string) *HttpClient {
 	client.request, client.Error = http.NewRequest("POST", "", nil)
 	if client.Error != nil {
 		return client
+	}
+
+	rawurl, err := HandleURL(client, rawurl)
+	if err != nil {
+		client.Error = err
 	}
 
 	return client.handle(rawurl)
@@ -70,6 +82,19 @@ func (client *HttpClient) handle(rawurl string) *HttpClient {
 	return client
 }
 
+// UseHTTPS ...
+// Whether to use https protocol
+func (client *HttpClient) UseHTTPS(flag bool) *HttpClient {
+	if flag {
+		client.request.URL.Scheme = "https"
+	} else {
+		client.request.URL.Scheme = "http"
+	}
+	return client
+}
+
+// ContentType ...
+// Set the content type of the request
 func (client *HttpClient) ContentType(contentType string) *HttpClient {
 	if client.Error != nil {
 		return client
@@ -80,6 +105,9 @@ func (client *HttpClient) ContentType(contentType string) *HttpClient {
 	return client
 }
 
+// Body ...
+// Set the body of the request .
+// Used when the method is post .
 func (client *HttpClient) Body(body io.Reader) *HttpClient {
 	if client.Error != nil {
 		return client
@@ -90,6 +118,8 @@ func (client *HttpClient) Body(body io.Reader) *HttpClient {
 	return client
 }
 
+// AddHeader ...
+//	AddHeader to the request
 func (client *HttpClient) AddHeader(key, value string) *HttpClient {
 	if client.Error != nil {
 		return client
@@ -100,6 +130,8 @@ func (client *HttpClient) AddHeader(key, value string) *HttpClient {
 	return client
 }
 
+// AddCookie ...
+// Add cookie to the request
 func (client *HttpClient) AddCookie(name, value string) *HttpClient {
 	if client.Error != nil {
 		return client
@@ -147,6 +179,7 @@ func (client *HttpClient) GetJce(v interface{}) *HttpClient {
 }
 
 func (client *HttpClient) Execute() (err error) {
+
 	if client.Error != nil {
 		return client.Error
 	}
@@ -230,4 +263,31 @@ func setJSONP(v *interface{}, content []byte) error {
 
 func setJce(v *interface{}) error {
 	return nil
+}
+
+/*HandleURL ...
+ *	 	used to convert rawurl to real url, support l5 && zkname && http && https
+ *		l5 :
+ *			l5://11111:22222/test
+ *		zkname:
+ *			zkname://test.zkname.etc/test
+ */
+func HandleURL(client *HttpClient, rawurl string) (string, error) {
+	rawurl = strings.TrimSpace(rawurl)
+	parts := strings.Split(rawurl, "://")
+	if len(parts) != 2 {
+		return "", errors.New("Invalid url. Please start with http/https/zkname/l5")
+	}
+	switch parts[0] {
+	case "http":
+		key := strings.Split(parts[1], "/")[0]
+		client.routeip = strings.Split(key, ":")[0]
+		return rawurl, nil
+	case "https":
+		key := strings.Split(parts[1], "/")[0]
+		client.routeip = strings.Split(key, ":")[0]
+		return rawurl, nil
+	default:
+		return "", fmt.Errorf("Wrong url protocol %s. Please start with http/https", parts[0])
+	}
 }
